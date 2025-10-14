@@ -9,12 +9,14 @@ import { ref } from 'vue'
 
 const value = ref(1)
 const displayValue = ref(1)
+const isRolling = ref(false)
 
 let intervalId: ReturnType<typeof setInterval> | null = null
 
 function roll() {
   const duration = Math.random() * 1000 + 800
   value.value = Math.ceil(Math.random() * 6)
+  isRolling.value = true
 
   if (intervalId) clearInterval(intervalId)
   intervalId = setInterval(() => {
@@ -27,27 +29,10 @@ function roll() {
       intervalId = null
     }
     displayValue.value = value.value
+    isRolling.value = false
   }, duration)
 }
 
-// Expose the roll method to be callable from parent components
-defineExpose({ roll })
+// Expose the roll method and the current display value to be callable/readable from parent components
+defineExpose({ roll, displayValue, isRolling })
 </script>
-
-<style scoped>
-.diceobject {
-  width: 100px;
-  height: 100px;
-  background: #eee;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-.diceobject:hover {
-  transform: scale(1.1);
-}
-</style>
