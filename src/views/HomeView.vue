@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import MainPageCarousel from '@/components/MainPageCarousel.vue'
+</script>
+
 <template>
   <main class="home">
     <h1>MonkeyHacks</h1>
@@ -7,6 +11,7 @@
         <button>Go to Dice Roller →</button>
       </RouterLink>
       <p>Click below to start rolling some dice.</p>
+      <MainPageCarousel />
     </div>
   </main>
 </template>
