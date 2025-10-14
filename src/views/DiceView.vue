@@ -12,16 +12,16 @@
       </div>
 
       <div class="dice-container">
-        <!-- Your DiceObject components -->
         <DiceObject ref="dice1" />
         <DiceObject ref="dice2" />
       </div>
 
       <div class="sum-column">
         <div class="sum-box">
-          <h2>Sum</h2>
-          <p class="sum-value" v-if="bothFinished">{{ lastSum }}</p>
+          <h2>Result:</h2>
+          <p class="sum-value" v-if="bothFinished">{{ lastMessage }}</p>
           <p class="sum-rolling" v-else>Rolling…</p>
+           <p class="sum-value" v-if="isDebug">{{ lastSum }}</p>
         </div>
       </div>
     </div>
@@ -35,9 +35,11 @@ import DiceObject from '../components/DiceObject.vue'
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 
-type DiceObjectInstance = InstanceType<typeof DiceObject>
 
-// Public interface for the child component that we expose
+/**  Debugging flag to show extra info */
+const isDebug = false;
+
+type DiceObjectInstance = InstanceType<typeof DiceObject>
 type DicePublic = DiceObjectInstance & { displayValue?: number | Ref<number> }
 
 const dice1 = ref<DicePublic | null>(null)
@@ -62,16 +64,37 @@ const bothFinished = computed(() => {
 })
 
 const lastSum = ref<number>(0)
+const lastMessage = ref<string>('')
+const csMessage = ref<string>('')
 
 onMounted(() => {
-  // initialize lastSum with the current sum
+  lastMessage.value = csMessage.value
   lastSum.value = sum.value
 })
 
 // Update lastSum only when both dice have finished rolling
 watch(bothFinished, (finished) => {
   if (finished) {
+    lastMessage.value = csMessage.value
     lastSum.value = sum.value
+
+    const currentValue = lastSum.value
+
+    const aNumbers = [2, 3, 5, 6]
+    const bNumbers = [4, 7, 10]
+    const midnumbers = [8, 9, 11, 12]
+
+    if (aNumbers.includes(currentValue)) {
+      csMessage.value = 'Go to A site'
+    } else if (bNumbers.includes(currentValue)) {
+      csMessage.value = 'Go to B site'
+    } else if (midnumbers.includes(currentValue)) {
+      csMessage.value = 'Go to Mid'
+    } else {
+      csMessage.value = 'Error Rolling'
+    }
+    lastMessage.value = csMessage.value
+    lastSum.value = currentValue
   }
 })
 
