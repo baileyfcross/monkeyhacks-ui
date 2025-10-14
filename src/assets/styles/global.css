@@ -1,0 +1,190 @@
+/* Two-column layout: text left, dice right */
+.three-column {
+  display: grid;
+  grid-template-columns: 1fr 420px 1fr; /* left text, center dice, right empty */
+  gap: 2rem;
+  align-items: start;
+  width: 100%;
+  max-width: 1200px;
+}
+
+/* Center dice-container within the middle column */
+.dice-container {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1rem;
+  justify-content: center; /* horizontal centering */
+  align-items: center; /* vertical centering of dice within the container */
+  align-self: center; /* center the whole container within the grid row */
+}
+/* Colors */
+:root {
+  --primary-color: #007bff;
+  --secondary-color: #0056b3;
+  --text-color: #333;
+  --background-color: #f9f9f9;
+}
+
+/* Typography */
+body {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Layout helpers */
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.home {
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.dice-container {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+/* Sum column centering */
+.sum-column {
+  display: flex;
+  align-items: center; /* vertical center within column */
+  justify-content: center; /* horizontal center within column */
+}
+
+.sum-box {
+  text-align: center;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  background: #fafafa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.sum-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0;
+}
+
+.sum-rolling {
+  color: #666;
+  font-style: italic;
+}
+
+/* Make the dice stack vertically on small screens and the two-column collapse */
+@media (max-width: 900px) {
+  .three-column {
+    grid-template-columns: 1fr;
+  }
+  .dice-container {
+    justify-content: center;
+  }
+}
+
+.dice-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start; /* align items to the top */
+  justify-content: flex-start; /* align content to the left */
+  gap: 2rem;
+  padding: 2rem;
+  width: 100%;
+  max-width: 1100px; /* keep content from stretching too wide */
+  margin-left: 0; /* ensure it starts at the left edge of its container */
+}
+
+/* Dice Boxes */
+.diceobject {
+  width: 100px;
+  height: 100px;
+  background: #eee;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.diceobject:hover {
+  transform: scale(1.1);
+}
+/* Text Boxes */
+.text-box {
+  flex: 1 1 300px;
+  max-width: 400px;
+}
+
+.text-box h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.text-box p {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+/* Buttons */
+.button {
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.button-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.button-primary:hover {
+  background-color: var(--secondary-color);
+}
+
+.cta-button {
+  padding: 0.6rem 1.2rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cta-button:hover {
+  background-color: #0056b3;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .dice-text {
+    flex-direction: column;
+  }
+
+  .dice-box,
+  .text-box {
+    max-width: 100%;
+  }
+}
