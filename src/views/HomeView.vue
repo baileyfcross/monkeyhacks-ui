@@ -1,11 +1,13 @@
 <template>
   <main class="home">
-    <h1>Welcome to Dice Roller!</h1>
-    <p>Click below to start rolling some dice.</p>
+    <h1>MonkeyHacks</h1>
 
-    <RouterLink to="/diceGame">
-      <button>Go to Dice Roller →</button>
-    </RouterLink>
+    <div>
+      <RouterLink to="/diceGame">
+        <button>Go to Dice Roller →</button>
+      </RouterLink>
+      <p>Click below to start rolling some dice.</p>
+    </div>
   </main>
 </template>
 

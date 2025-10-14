@@ -1,6 +1,6 @@
 <template>
   <div class="diceobject" @click="roll">
-    <p>{{ value }}</p>
+    <p>{{ displayValue }}</p>
   </div>
 </template>
 
@@ -8,9 +8,26 @@
 import { ref } from 'vue'
 
 const value = ref(1)
+const displayValue = ref(1)
+
+let intervalId: ReturnType<typeof setInterval> | null = null
 
 function roll() {
+  const duration = Math.random() * 1000 + 800
   value.value = Math.ceil(Math.random() * 6)
+
+  if (intervalId) clearInterval(intervalId)
+  intervalId = setInterval(() => {
+    displayValue.value = Math.ceil(Math.random() * 6)
+  }, 50)
+
+  setTimeout(() => {
+    if (intervalId) {
+      clearInterval(intervalId)
+      intervalId = null
+    }
+    displayValue.value = value.value
+  }, duration)
 }
 
 // Expose the roll method to be callable from parent components
