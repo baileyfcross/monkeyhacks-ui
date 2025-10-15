@@ -71,7 +71,7 @@ function createPlinkoBoard() {
 
   const ballRadius = 10; // Radius of the ball
   const paddingTop = Math.max(60, containerHeight * 0.15);
-  const paddingSides = ballRadius * 2; // Ensure the distance from walls to pegs equals the ball's diameter
+  const paddingSides = PEG_RADIUS * 2; // Adjust padding to match the extra posts
   const usableWidth = containerWidth - paddingSides * 2;
   const usableHeight = containerHeight - paddingTop - 80;
 
@@ -111,6 +111,24 @@ function createPlinkoBoard() {
         World.add(world, peg);
       }
     }
+
+    // Add extra pegs on odd rows towards the outside
+    if (row % 2 === 0) {
+      const leftExtraPegX = paddingSides;
+      const rightExtraPegX = containerWidth - paddingSides;
+      const y = paddingTop + row * pegSpacingY * 0.9;
+
+      const leftPeg = Bodies.circle(leftExtraPegX, y, PEG_RADIUS, {
+        isStatic: true,
+        render: { fillStyle: '#222' },
+      });
+      const rightPeg = Bodies.circle(rightExtraPegX, y, PEG_RADIUS, {
+        isStatic: true,
+        render: { fillStyle: '#222' },
+      });
+
+      World.add(world, [leftPeg, rightPeg]);
+    }
   }
 
   // Add slots at the bottom inside the padded area
@@ -121,6 +139,14 @@ function createPlinkoBoard() {
     const scaledX = paddingSides + gridX * usableWidth;
     const slot = Bodies.rectangle(scaledX, slotY, 10, slotHeight, { isStatic: true, label: `slot-${i}`, render: { fillStyle: '#444' } });
     World.add(world, slot);
+
+    // Add half domes at the top of the slot walls
+    const domeRadius = 5; // Smaller radius for half domes
+    const dome = Bodies.circle(scaledX, slotY - slotHeight / 2 - domeRadius / 2, domeRadius, {
+      isStatic: true,
+      render: { fillStyle: '#444' },
+    });
+    World.add(world, dome);
   }
 
   // Add floor inside the padded area (narrower than full canvas so walls are visible)
@@ -151,18 +177,25 @@ function createPlinkoBoard() {
 
 function dropBall(x: number) {
   if (!world || !canvasContainer.value) {
-    console.error('World or canvas container is not initialized.');
+    console.error('World or canvas container is not initialized.', {
+      worldInitialized: !!world,
+      canvasContainerInitialized: !!canvasContainer.value,
+    });
     return;
   }
 
   const containerWidth = canvasContainer.value.clientWidth;
-  const ballX = (x / canvasContainer.value.offsetWidth) * containerWidth;
+  const containerHeight = canvasContainer.value.clientHeight;
+  const ballX = Math.max(10, Math.min((x / canvasContainer.value.offsetWidth) * containerWidth, containerWidth - 10));
 
-  // Spawn the ball in an area where it can exist without immediate removal
-  const spawnY = 50; // Adjusted spawn height to ensure it is within a valid area
+  // Adjust spawn position to ensure the ball starts within the visible area
+  const spawnY = Math.max(20, containerHeight * 0.1); // Start slightly below the top
+
   const ball = Bodies.circle(ballX, spawnY, 10, {
     restitution: 0.8,
     label: 'ball',
+    friction: 0.01, // Adjust friction for smoother behavior
+    frictionAir: 0.1, // Further increase air resistance to slow down the fall
   });
 
   World.add(world, ball);
@@ -200,9 +233,18 @@ function handleResize() {
   const width = container.clientWidth;
   const height = container.clientHeight;
 
+  // Update render dimensions
   render.options.width = width;
   render.options.height = height;
 
+  // Reposition the canvas
+  Render.setPixelRatio(render, window.devicePixelRatio || 1);
+  Render.lookAt(render, {
+    min: { x: 0, y: 0 },
+    max: { x: width, y: height },
+  });
+
+  // Recreate the Plinko board to fit the new dimensions
   createPlinkoBoard();
 }
 
@@ -212,7 +254,10 @@ function dropBallFromCenter() {
     console.error('Canvas container is not initialized.');
     return;
   }
-  dropBall(container.clientWidth / 2);
+
+  // Generate a random x-coordinate within the board's width
+  const randomX = Math.random() * container.clientWidth;
+  dropBall(randomX);
 }
 
 onMounted(() => {
@@ -224,6 +269,10 @@ onMounted(() => {
 
   engine = Engine.create();
   world = engine.world;
+
+  // Reset gravity to default value
+  engine.gravity.y = 1; // Default gravity
+
   render = Render.create({
     element: container,
     engine: engine,
@@ -265,7 +314,8 @@ onMounted(() => {
             slotHeight,
           });
 
-          if (ballY >= slotYPos - slotHeight / 2 - 10) {
+          // Ensure the ball is fully inside the slot before removal
+          if (ballY >= slotYPos - slotHeight / 2 && ballY <= slotYPos + slotHeight / 2) {
             if (!isNaN(slotIndex)) {
               scores.value = scores.value.map((score, index) => (index === slotIndex ? score + 1 : score));
             }
@@ -274,7 +324,7 @@ onMounted(() => {
               Composite.remove(world, ball);
             }
           } else {
-            console.debug('[Plinko] Ignoring slot collision; ball is too high', { ballY, slotYPos, slotHeight });
+            console.debug('[Plinko] Ignoring slot collision; ball is not fully inside the slot', { ballY, slotYPos, slotHeight });
           }
         }
       });
