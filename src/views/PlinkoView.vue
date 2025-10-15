@@ -5,18 +5,8 @@
         <!-- Left column intentionally left empty -->
         <div class="controls">
           <button @click="dropBallFromCenter">Drop Ball</button>
-          <button @click="startAutoDrop" :disabled="autoDropping">Auto Drop (10)</button>
+          <button @click="startAutoDrop" :disabled="autoDropping">Auto Drop (10) (WIP)</button>
           <button @click="resetBoard">Reset</button>
-        </div>
-
-        <div class="score-board">
-          <h3>Scores</h3>
-          <div class="slots">
-            <div class="slot" v-for="(s, i) in scores" :key="i">
-              <div class="slot-label">Slot {{ i + 1 }}</div>
-              <div class="slot-score">{{ s }}</div>
-            </div>
-          </div>
         </div>
       </div>
       <div class="plinko-view">
@@ -32,7 +22,15 @@
         </div>
       </div>
       <div class="right-column">
-        <!-- Right column intentionally left empty -->
+        <div class="score-board">
+          <h3>Slot Hit Totals</h3>
+          <div class="slots">
+            <div class="slot" v-for="(s, i) in scores" :key="i">
+              <div class="slot-label">Slot {{ i + 1 }}</div>
+              <div class="slot-score">{{ s }}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -41,7 +39,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { Ref } from 'vue'
-import Matter, { Engine, World, Runner, Render, Composite, Bodies, Events } from 'matter-js'
+import Matter, { Engine, World, Runner, Render, Composite, Bodies, Events, Body } from 'matter-js'
 
 const canvasContainer: Ref<HTMLElement | null> = ref(null)
 let engine: Matter.Engine | null = null
@@ -108,7 +106,7 @@ function createPlinkoBoard() {
 
   // Pegs
   const pegSpacingX = usableWidth / (COLUMNS - 1)
-  const pegSpacingY = usableHeight / (ROWS - 1)
+  const pegSpacingY = usableHeight / (ROWS - 1) // Ensure uniform vertical spacing
 
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLUMNS; col++) {
@@ -120,6 +118,9 @@ function createPlinkoBoard() {
       if (x > paddingSides + ballRadius && x < containerWidth - paddingSides - ballRadius) {
         const peg = Bodies.circle(x, y, PEG_RADIUS, {
           isStatic: true,
+          restitution: 1.2, // Increase restitution for more bounciness
+          friction: 0, // Reduce friction to prevent stickiness
+          frictionStatic: 0, // Reduce static friction to prevent stickiness
           render: { fillStyle: '#222' },
         })
         World.add(world, peg)
@@ -134,10 +135,16 @@ function createPlinkoBoard() {
 
       const leftPeg = Bodies.circle(leftExtraPegX, y, PEG_RADIUS, {
         isStatic: true,
+        restitution: 1.2, // Increase restitution for more bounciness
+        friction: 0, // Reduce friction to prevent stickiness
+        frictionStatic: 0, // Reduce static friction to prevent stickiness
         render: { fillStyle: '#222' },
       })
       const rightPeg = Bodies.circle(rightExtraPegX, y, PEG_RADIUS, {
         isStatic: true,
+        restitution: 1.2, // Increase restitution for more bounciness
+        friction: 0, // Reduce friction to prevent stickiness
+        frictionStatic: 0, // Reduce static friction to prevent stickiness
         render: { fillStyle: '#222' },
       })
 
@@ -225,6 +232,9 @@ function dropBall(x: number) {
     frictionAir: 0.1, // Further increase air resistance to slow down the fall
   })
 
+  // Set initial velocity to zero
+  Body.setVelocity(ball, { x: 0, y: 0 })
+
   World.add(world, ball)
   console.debug('[Plinko] Spawned ball at', { x: ballX, y: spawnY })
 }
@@ -303,11 +313,12 @@ onMounted(() => {
   render = Render.create({
     element: container,
     engine: engine,
-    options: {
-      width: container.clientWidth,
-      height: container.clientHeight,
-      wireframes: false,
-    },
+    options:
+      {
+        width: container.clientWidth,
+        height: container.clientHeight,
+        wireframes: false,
+      },
   })
 
   if (world) {
@@ -467,26 +478,32 @@ button:disabled {
 
 .score-board {
   margin-top: 20px;
+  text-align: center; /* Center the text */
 }
 
 .slots {
   display: flex;
-  justify-content: space-between;
+  justify-content: center; /* Center the slots container */
+  flex-wrap: wrap; /* Allow wrapping to new rows */
   margin-top: 10px;
 }
 
 .slot {
-  flex: 1;
+  flex: 1 1 calc(33.33% - 10px); /* Adjust to fit 3 slots per row with spacing */
   text-align: center;
+  margin: 5px; /* Add spacing between rows */
 }
 
-.slot-label {
-  font-weight: bold;
+@media (max-width: 600px) {
+  .slot {
+    flex: 1 1 calc(50% - 10px); /* Adjust to fit 2 slots per row on smaller screens */
+  }
 }
 
-.slot-score {
-  font-size: 24px;
-  color: #007bff;
+@media (max-width: 400px) {
+  .slot {
+    flex: 1 1 100%; /* Stack slots in a single column on very small screens */
+  }
 }
 
 .header-row {
