@@ -1,127 +1,5 @@
-/* Two-column layout: text left, dice right */
-.three-column {
-  display: grid;
-  grid-template-columns: 1fr 420px 1fr; /* left text, center dice, right empty */
-  gap: 2rem;
-  align-items: start;
-  width: 100%;
-  max-width: 1200px;
-}
+/* ======= General Styles ======= */
 
-/* Center dice-container within the middle column */
-.dice-container {
-  display: flex;
-  gap: 2rem;
-  margin-bottom: 1rem;
-  justify-content: center; /* horizontal centering */
-  align-items: center; /* vertical centering of dice within the container */
-  align-self: center; /* center the whole container within the grid row */
-}
-/* Colors */
-:root {
-  --primary-color: #007bff;
-  --secondary-color: #0056b3;
-  --text-color: #333;
-  --background-color: #f9f9f9;
-}
-
-/* Typography */
-body {
-  font-family: 'Helvetica', 'Arial', sans-serif;
-  color: var(--text-color);
-  margin: 0;
-  padding: 0;
-}
-
-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-/* Layout helpers */
-.flex-center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.home {
-  text-align: center;
-  margin-top: 3rem;
-}
-
-.dice-container {
-  display: flex;
-  gap: 2rem;
-  margin-bottom: 1rem;
-}
-
-/* Sum column centering */
-.sum-column {
-  display: flex;
-  align-items: center; /* vertical center within column */
-  justify-content: center; /* horizontal center within column */
-}
-
-.sum-box {
-  text-align: center;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  background: #fafafa;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-.sum-value {
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 0.25rem 0 0;
-}
-
-.sum-rolling {
-  color: #666;
-  font-style: italic;
-}
-
-/* Make the dice stack vertically on small screens and the two-column collapse */
-@media (max-width: 900px) {
-  .three-column {
-    grid-template-columns: 1fr;
-  }
-  .dice-container {
-    justify-content: center;
-  }
-}
-
-.dice-text {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start; /* align items to the top */
-  justify-content: flex-start; /* align content to the left */
-  gap: 2rem;
-  padding: 2rem;
-  width: 100%;
-  max-width: 1100px; /* keep content from stretching too wide */
-  margin-left: 0; /* ensure it starts at the left edge of its container */
-}
-
-/* Dice Boxes */
-.diceobject {
-  width: 100px;
-  height: 100px;
-  background: #eee;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-.diceobject:hover {
-  transform: scale(1.1);
-}
 /* Text Boxes */
 .text-box {
   flex: 1 1 300px;
@@ -177,6 +55,100 @@ main {
   background-color: #0056b3;
 }
 
+/* Two-column layout: text left, dice right */
+.three-column {
+  display: grid;
+  grid-template-columns: 1fr 420px 1fr; /* left text, center dice, right empty */
+  gap: 2rem;
+  align-items: start;
+  width: 100%;
+  max-width: 1200px;
+}
+
+/* Colors */
+:root {
+  --primary-color: #007bff;
+  --secondary-color: #0056b3;
+  --text-color: #333;
+  --background-color: #f9f9f9;
+}
+
+/* Typography */
+body {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Layout helpers */
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+/* ======= Home ======= */
+.home {
+  text-align: center;
+  margin-top: 3rem;
+}
+
+/* ======= Dice ======= */
+.diceobject {
+  width: 100px;
+  height: 100px;
+  background: #eee;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.diceobject:hover {
+  transform: scale(1.1);
+}
+
+.dice-container {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1rem;
+  justify-content: center; /* horizontal centering */
+  align-items: center; /* vertical centering of dice within the container */
+  align-self: center; /* center the whole container within the grid row */
+}
+
+
+.dice-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start; /* align items to the top */
+  justify-content: flex-start; /* align content to the left */
+  gap: 2rem;
+  padding: 2rem;
+  width: 100%;
+  max-width: 1100px; /* keep content from stretching too wide */
+  margin-left: 0; /* ensure it starts at the left edge of its container */
+}
+
+/* Make the dice stack vertically on small screens and the two-column collapse */
+@media (max-width: 900px) {
+  .three-column {
+    grid-template-columns: 1fr;
+  }
+  .dice-container {
+    justify-content: center;
+  }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .dice-text {
@@ -187,4 +159,46 @@ main {
   .text-box {
     max-width: 100%;
   }
+}
+
+/* result for dice column */
+.sum-column {
+  display: flex;
+  align-items: center; /* vertical center within column */
+  justify-content: center; /* horizontal center within column */
+}
+
+.sum-box {
+  text-align: center;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  background: #fafafa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.sum-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0;
+}
+
+.sum-rolling {
+  color: #666;
+  font-style: italic;
+}
+
+/* ======= Plinko ======= */
+.plinko-view {
+  text-align: center;
+  padding: 2rem;
+}
+
+.game-area {
+  width: 600px;
+  height: 700px;
+  background: #f0f0f0;
+  margin: 2rem auto;
+  border-radius: 12px;
+  border: 2px solid #ccc;
+  position: relative;
 }
