@@ -1,10 +1,10 @@
 <template>
   <main class="main">
-    <h1>🎲 Dice Roller</h1>
+    <h1>🎲 CS Site Roller</h1>
     <div class="three-column">
       <div class="dice-text">
         <div class="text-box">
-          <h1>CS Roller</h1>
+          <h1>CS Site Roller</h1>
           <p></p>
           Based on a classic game of chance. This simple dice roll will tell you where to go on
           each. If you're curious, try and figure out the set of numbers for each sum that I use.
