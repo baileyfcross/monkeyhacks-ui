@@ -8,7 +8,7 @@ import MainPageCarousel from '@/components/MainPageCarousel.vue'
 
     <div>
       <RouterLink to="/diceGame">
-        <button class="button">Go to Dice Roller →</button>
+        <button class="button">Go to CS Site Roller →</button>
       </RouterLink>
       <MainPageCarousel />
     </div>
