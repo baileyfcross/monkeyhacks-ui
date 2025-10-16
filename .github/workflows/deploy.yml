@@ -2,7 +2,7 @@ name: Deploy Vue to Apache
 
 on:
   push:
-    branches: [ main ]
+    branches: [ production ]
 
 jobs:
   build-and-deploy:
