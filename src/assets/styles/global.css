@@ -298,14 +298,14 @@ main {
 
 /* Main Page Carousel */
 .carousel-wrapper {
-  max-width: 900px;
+  max-width: 600px;
   margin: 2rem auto;
   position: relative;
 }
 
 .carousel-image {
   width: 100%;
-  height: 500px;
+  height: 350px;
 }
 
 /*Landmark Erick Embed  */
