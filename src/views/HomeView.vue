@@ -24,7 +24,7 @@ import LandmarkErickEmbed from '@/components/LandmarkErickEmbed.vue'
             <button class="button">Go to CS Site Roller →</button>
           </RouterLink>
           <RouterLink to="/plinko">
-            <!--<button class="button">Go to Plinko Game →</button> -->
+            <button class="button">Go to Plinko Game →</button>
           </RouterLink>
         </div>
       </div>
