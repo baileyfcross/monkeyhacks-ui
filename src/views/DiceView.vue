@@ -1,14 +1,12 @@
 <template>
   <main class="main">
     <h1>🎲 CS Site Roller</h1>
-    <div class="three-column">
-      <div class="dice-text">
-        <div class="text-box">
-          <h1>CS Site Roller</h1>
-          <p></p>
-          Based on a classic game of chance. This simple dice roll will tell you where to go on
-          each. If you're curious, try and figure out the set of numbers for each sum that I use.
-        </div>
+    <div class="dice-three-column">
+      <div class="dice-text text-box">
+        <h1>CS Site Roller</h1>
+        <p></p>
+        Based on a classic game of chance. This simple dice roll will tell you where to go on each.
+        If you're curious, try and figure out the set of numbers for each sum that I use.
       </div>
 
       <div class="dice-container">
@@ -21,7 +19,7 @@
           <h2>Result:</h2>
           <p class="sum-value" v-if="bothFinished">{{ lastMessage }}</p>
           <p class="sum-rolling" v-else>Rolling…</p>
-           <p class="sum-value" v-if="isDebug">{{ lastSum }}</p>
+          <p class="sum-value" v-if="isDebug">{{ lastSum }}</p>
         </div>
       </div>
     </div>
@@ -35,9 +33,8 @@ import DiceObject from '../components/DiceObject.vue'
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 
-
 /**  Debugging flag to show extra info */
-const isDebug = false;
+const isDebug = false
 
 type DiceObjectInstance = InstanceType<typeof DiceObject>
 type DicePublic = DiceObjectInstance & { displayValue?: number | Ref<number> }
