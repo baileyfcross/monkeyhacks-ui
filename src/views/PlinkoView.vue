@@ -19,6 +19,17 @@
         <div class="game-area">
           <!-- Your Plinko game will go here -->
           <div ref="canvasContainer" class="canvas-container" @click="handleCanvasClick"></div>
+          <!-- Slot labels at the bottom -->
+          <div class="slot-labels">
+            <div
+              class="slot-number"
+              v-for="(pos, i) in slotPositions"
+              :key="i"
+              :style="{ left: pos + '%' }"
+            >
+              {{ i + 1 }}
+            </div>
+          </div>
         </div>
       </div>
       <div class="right-column">
@@ -30,6 +41,10 @@
               <div class="slot-score">{{ s }}</div>
             </div>
           </div>
+          <div class="total-balls">
+            <div class="total-label">Total Balls Dropped</div>
+            <div class="total-score">{{ totalBallsDropped }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -37,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import type { Ref } from 'vue'
 import Matter, { Engine, World, Runner, Render, Composite, Bodies, Events, Body } from 'matter-js'
 
@@ -47,12 +62,38 @@ let render: Matter.Render | null = null
 let runner: Matter.Runner | null = null
 let world: Matter.World | null = null
 const scores = ref<number[]>(Array(7).fill(0))
-const autoDropping = false
+const autoDropping = ref(false)
 const showBounds = ref(false)
+const slotPositions = ref<number[]>([])
 
-const PEG_RADIUS = 6
+const totalBallsDropped = computed(() => scores.value.reduce((sum, score) => sum + score, 0))
+
 const ROWS = 9
 const COLUMNS = 7
+
+function calculatePegRadius(): number {
+  // Different peg sizing based on actual screen/viewport width
+  const screenWidth = window.innerWidth
+  if (screenWidth <= 900) {
+    // Mobile and tablets (650px or less): smaller pegs
+    return 5
+  } else {
+    // Desktop screens (larger than 650px): larger pegs
+    return 10
+  }
+}
+
+function calculateBallRadius(containerWidth: number): number {
+  const screenWidth = window.innerWidth
+  // Different ball sizing based on screen breakpoint
+  if (screenWidth <= 650) {
+    // Mobile and tablets (650px or less): smaller scaling
+    return Math.max(5, containerWidth / 35)
+  } else {
+    // Desktop screens (larger than 650px): larger scaling
+    return Math.max(5, containerWidth / 40)
+  }
+}
 
 function createPlinkoBoard() {
   if (!world || !canvasContainer.value) return
@@ -63,9 +104,10 @@ function createPlinkoBoard() {
   // Clear existing bodies
   Composite.clear(world, false, true)
 
-  const ballRadius = 10 // Radius of the ball
+  const ballRadius = calculateBallRadius(containerWidth)
+  const pegRadius = calculatePegRadius()
   const paddingTop = Math.max(60, containerHeight * 0.15)
-  const paddingSides = PEG_RADIUS * 2 // Adjust padding to match the extra posts
+  const paddingSides = pegRadius * 2 // Adjust padding to match the extra posts
   const usableWidth = containerWidth - paddingSides * 2
   const usableHeight = containerHeight - paddingTop - 80
 
@@ -116,7 +158,7 @@ function createPlinkoBoard() {
 
       // Ensure pegs are not placed too close to the walls
       if (x > paddingSides + ballRadius && x < containerWidth - paddingSides - ballRadius) {
-        const peg = Bodies.circle(x, y, PEG_RADIUS, {
+        const peg = Bodies.circle(x, y, pegRadius, {
           isStatic: true,
           restitution: 1.2, // Increase restitution for more bounciness
           friction: 0, // Reduce friction to prevent stickiness
@@ -133,14 +175,14 @@ function createPlinkoBoard() {
       const rightExtraPegX = containerWidth - paddingSides
       const y = paddingTop + row * pegSpacingY * 0.9
 
-      const leftPeg = Bodies.circle(leftExtraPegX, y, PEG_RADIUS, {
+      const leftPeg = Bodies.circle(leftExtraPegX, y, pegRadius, {
         isStatic: true,
         restitution: 1.2, // Increase restitution for more bounciness
         friction: 0, // Reduce friction to prevent stickiness
         frictionStatic: 0, // Reduce static friction to prevent stickiness
         render: { fillStyle: '#222' },
       })
-      const rightPeg = Bodies.circle(rightExtraPegX, y, PEG_RADIUS, {
+      const rightPeg = Bodies.circle(rightExtraPegX, y, pegRadius, {
         isStatic: true,
         restitution: 1.2, // Increase restitution for more bounciness
         friction: 0, // Reduce friction to prevent stickiness
@@ -153,8 +195,11 @@ function createPlinkoBoard() {
   }
 
   // Add slots at the bottom inside the padded area
-  const slotY = containerHeight - 30
+  const slotY = containerHeight - 10
   const slotHeight = 100
+  const positions: number[] = []
+
+  // Create the actual slot physics bodies and calculate label positions
   for (let i = 0; i <= COLUMNS; i++) {
     const gridX = i / COLUMNS // 0..1
     const scaledX = paddingSides + gridX * usableWidth
@@ -165,6 +210,15 @@ function createPlinkoBoard() {
     })
     World.add(world, slot)
 
+    // Calculate label positions: center between each pair of adjacent slots
+    if (i > 0) {
+      const prevScaledX = paddingSides + ((i - 1) / COLUMNS) * usableWidth
+      const centerX = (prevScaledX + scaledX) / 2
+      // Convert back to percentage relative to containerWidth
+      const percentPosition = (centerX / containerWidth) * 100
+      positions.push(percentPosition)
+    }
+
     // Add half domes at the top of the slot walls
     const domeRadius = 5 // Smaller radius for half domes
     const dome = Bodies.circle(scaledX, slotY - slotHeight / 2 - domeRadius / 2, domeRadius, {
@@ -173,6 +227,12 @@ function createPlinkoBoard() {
     })
     World.add(world, dome)
   }
+
+  // Update the slot positions for UI alignment
+  slotPositions.value = positions
+
+  // Update the slot positions for UI alignment
+  slotPositions.value = positions
 
   // Add floor inside the padded area (narrower than full canvas so walls are visible)
   const floor = Bodies.rectangle(
@@ -224,23 +284,58 @@ function dropBall(x: number) {
 
   // Adjust spawn position to ensure the ball starts within the visible area
   const spawnY = Math.max(20, containerHeight * 0.1) // Start slightly below the top
+  const ballRadius = calculateBallRadius(containerWidth)
 
-  const ball = Bodies.circle(ballX, spawnY, 10, {
-    restitution: 0.8,
+  const ball = Bodies.circle(ballX, spawnY, ballRadius, {
+    restitution: 0.6,
     label: 'ball',
-    friction: 0.01, // Adjust friction for smoother behavior
-    frictionAir: 0.1, // Further increase air resistance to slow down the fall
+    friction: 0.5,
+    frictionAir: 0.005,
+    density: 0.04,
   })
 
   // Set initial velocity to zero
   Body.setVelocity(ball, { x: 0, y: 0 })
 
   World.add(world, ball)
-  console.debug('[Plinko] Spawned ball at', { x: ballX, y: spawnY })
+  console.debug('[Plinko] Spawned ball at', { x: ballX, y: spawnY, radius: ballRadius })
 }
 
 function startAutoDrop() {
-  console.log('Start Auto Drop functionality not implemented yet.')
+  if (autoDropping.value) return
+
+  autoDropping.value = true
+  const container = canvasContainer.value
+  if (!container) {
+    console.error('Canvas container is not initialized.')
+    autoDropping.value = false
+    return
+  }
+
+  const containerWidth = container.clientWidth
+  const pegRadius = calculatePegRadius()
+  const paddingSides = pegRadius * 2
+  const usableWidth = containerWidth - paddingSides * 2
+
+  let ballsDropped = 0
+  const ballsToDropEach = 10
+  const intervalTime = 100 // Drop one ball every 100ms
+
+  const dropInterval = setInterval(() => {
+    if (ballsDropped >= ballsToDropEach) {
+      clearInterval(dropInterval)
+      autoDropping.value = false
+      console.debug('[Plinko] Auto drop completed', { ballsDropped })
+      return
+    }
+
+    // Generate random X position within the valid playable area
+    const randomX = paddingSides + Math.random() * usableWidth
+    dropBall(randomX)
+    ballsDropped++
+
+    console.debug('[Plinko] Auto drop ball', { ballNumber: ballsDropped })
+  }, intervalTime)
 }
 
 function resetBoard() {
@@ -252,6 +347,8 @@ function resetBoard() {
       }
     })
   }
+  // Clear the slot scores
+  scores.value = Array(7).fill(0)
 }
 
 function handleCanvasClick(event: MouseEvent) {
@@ -304,7 +401,11 @@ onMounted(() => {
     return
   }
 
-  engine = Engine.create()
+  engine = Engine.create({
+    enableSleeping: false,
+  })
+  engine.world.gravity.y = 1
+
   world = engine.world
 
   // Reset gravity to default value
@@ -313,66 +414,58 @@ onMounted(() => {
   render = Render.create({
     element: container,
     engine: engine,
-    options:
-      {
-        width: container.clientWidth,
-        height: container.clientHeight,
-        wireframes: false,
-      },
+    options: {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      wireframes: false,
+    },
   })
 
   if (world) {
     createPlinkoBoard()
 
-    // Add collision detection for slots
-    Events.on(engine, 'collisionStart', (event) => {
-      event.pairs.forEach((pair) => {
-        const { bodyA, bodyB } = pair
-        const ball = bodyA.label === 'ball' ? bodyA : bodyB.label === 'ball' ? bodyB : null
-        const slot = bodyA.label?.startsWith('slot-')
-          ? bodyA
-          : bodyB.label?.startsWith('slot-')
-            ? bodyB
-            : null
+    // Check every frame if balls should be removed (simplified approach)
+    Events.on(engine, 'beforeUpdate', () => {
+      if (!world) return
 
-        if (ball) {
-          console.debug('[Plinko] Ball collision detected', {
-            ballId: ball.id,
-            ballPosition: ball.position,
-            pair,
-          })
-        }
+      const allBodies = Composite.allBodies(world)
+      const containerHeight = canvasContainer.value?.clientHeight || 0
+      const removalThreshold = containerHeight - 50 // Remove balls that reach near the bottom
 
-        if (ball && slot && slot.label) {
-          const slotIndex = parseInt(slot.label.split('-')[1] || '0', 10)
-          const ballY = ball.position?.y || 0
-          const slotYPos = slot.position?.y || 0
-          const slotHeight = slot.bounds?.max?.y - slot.bounds?.min?.y || 100
+      allBodies.forEach((body) => {
+        if (body.label === 'ball') {
+          const ballY = body.position?.y || 0
+          const ballX = body.position?.x || 0
 
-          console.debug('[Plinko] Ball collided with slot', {
-            slotLabel: slot.label,
-            slotYPos,
-            ballY,
-            slotHeight,
-          })
+          // If ball reaches the bottom area, find which slot it's in and remove it
+          if (ballY > removalThreshold) {
+            // Determine which slot based on X position
+            const containerWidth = canvasContainer.value?.clientWidth || 0
+            const pegRadius = calculatePegRadius()
+            const paddingSides = pegRadius * 2
+            const usableWidth = containerWidth - paddingSides * 2
 
-          // Ensure the ball is fully inside the slot before removal
-          if (ballY >= slotYPos - slotHeight / 2 && ballY <= slotYPos + slotHeight / 2) {
-            if (!isNaN(slotIndex)) {
-              scores.value = scores.value.map((score, index) =>
-                index === slotIndex ? score + 1 : score,
-              )
-            }
-            if (world) {
-              console.debug('[Plinko] Removing ball for slot', { slotIndex, ballId: ball.id })
-              Composite.remove(world, ball)
-            }
-          } else {
-            console.debug('[Plinko] Ignoring slot collision; ball is not fully inside the slot', {
+            // Calculate slot index based on ball's X position
+            const relativeX = ballX - paddingSides
+            const slotIndex = Math.round((relativeX / usableWidth) * COLUMNS)
+            const constrainedSlotIndex = Math.max(0, Math.min(COLUMNS, slotIndex))
+
+            console.debug('[Plinko] Removing ball at bottom', {
+              ballId: body.id,
               ballY,
-              slotYPos,
-              slotHeight,
+              ballX,
+              slotIndex: constrainedSlotIndex,
             })
+
+            // Increment the score for the appropriate slot
+            scores.value = scores.value.map((score, index) =>
+              index === constrainedSlotIndex ? score + 1 : score,
+            )
+
+            // Remove the ball
+            if (world) {
+              Composite.remove(world, body)
+            }
           }
         }
       })
@@ -540,5 +633,27 @@ button:disabled {
   width: 100%;
   height: 100%;
   overflow: visible; /* Ensure the outer walls are not cut off */
+}
+
+.slot-labels {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 25px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-top: 1px solid #ddd;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.slot-number {
+  position: absolute;
+  bottom: 50%;
+  transform: translate(-50%, 50%);
+  color: #333;
+  width: 30px;
+  text-align: center;
+  line-height: 1;
 }
 </style>
