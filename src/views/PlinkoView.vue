@@ -198,6 +198,8 @@ function createPlinkoBoard() {
   const slotY = containerHeight - 10
   const slotHeight = 100
   const positions: number[] = []
+
+  // Create the actual slot physics bodies and calculate label positions
   for (let i = 0; i <= COLUMNS; i++) {
     const gridX = i / COLUMNS // 0..1
     const scaledX = paddingSides + gridX * usableWidth
@@ -208,9 +210,14 @@ function createPlinkoBoard() {
     })
     World.add(world, slot)
 
-    // Store the percentage position (0-100) for slot label alignment
-    const percentPosition = gridX * 100
-    positions.push(percentPosition)
+    // Calculate label positions: center between each pair of adjacent slots
+    if (i > 0) {
+      const prevScaledX = paddingSides + ((i - 1) / COLUMNS) * usableWidth
+      const centerX = (prevScaledX + scaledX) / 2
+      // Convert back to percentage relative to containerWidth
+      const percentPosition = (centerX / containerWidth) * 100
+      positions.push(percentPosition)
+    }
 
     // Add half domes at the top of the slot walls
     const domeRadius = 5 // Smaller radius for half domes
@@ -220,6 +227,9 @@ function createPlinkoBoard() {
     })
     World.add(world, dome)
   }
+
+  // Update the slot positions for UI alignment
+  slotPositions.value = positions
 
   // Update the slot positions for UI alignment
   slotPositions.value = positions
