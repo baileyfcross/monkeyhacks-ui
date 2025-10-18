@@ -37,12 +37,14 @@ video {
   cursor: pointer;
 }
 
-.button-primary, .cta-button {
+.button-primary,
+.cta-button {
   background-color: var(--primary-color);
   color: white;
 }
 
-.button-primary:hover, .cta-button:hover {
+.button-primary:hover,
+.cta-button:hover {
   background-color: var(--secondary-color);
 }
 
@@ -95,6 +97,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding-top: 2rem;
 }
 
 /* ======= Dice ======= */
@@ -123,7 +126,6 @@ main {
   align-self: center; /* center the whole container within the grid row */
 }
 
-
 /* Adjust the middle column to match the dice container */
 .dice-three-column {
   display: grid;
@@ -139,7 +141,6 @@ main {
   flex-direction: row;
   gap: 2rem;
 }
-
 
 .dice-text {
   display: flex;
@@ -160,7 +161,8 @@ main {
     gap: 16px;
   }
 
-  .dice-text, .sum-column {
+  .dice-text,
+  .sum-column {
     justify-self: center; /* Center align within the columns */
     text-align: center;
   }
@@ -172,7 +174,8 @@ main {
     gap: 16px;
   }
 
-  .dice-text, .sum-column {
+  .dice-text,
+  .sum-column {
     justify-self: center;
     text-align: center;
   }
@@ -203,7 +206,8 @@ main {
     padding: 0 1rem; /* Add padding to prevent cutoff */
   }
 
-  .dice-text, .sum-column {
+  .dice-text,
+  .sum-column {
     justify-self: center;
     text-align: center;
     width: 100%; /* Ensure elements fit within the viewport */
@@ -269,7 +273,6 @@ main {
   grid-template-columns: 1fr 420px 1fr; /* Left text, center dice, right empty */
 }
 
-
 /* ======= Plinko ======= */
 .plinko-view {
   text-align: center;
@@ -292,7 +295,7 @@ main {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
   gap: 16px;
-  align-items: center;
+  align-items: start;
   justify-items: center;
 }
 
@@ -308,10 +311,18 @@ main {
   height: 350px;
 }
 
-/*Landmark Erick Embed  */
+/*Spotify Embed  */
+.landmark-erick-embed {
+  margin: 2rem auto;
+}
+
 .landmark-erick-embed iframe {
   width: 500px;
   height: 500px;
+}
+
+.arnie-woods-embed iframe {
+  padding-top: 20px;
 }
 
 /* ======= Responsive Styles ======= */
@@ -326,7 +337,8 @@ main {
     padding: 1rem; /* Reduce padding */
   }
 
-  .three-column, .dice-three-column {
+  .three-column,
+  .dice-three-column {
     grid-template-columns: 1fr; /* Stack columns vertically */
     gap: 1rem;
   }
@@ -358,7 +370,8 @@ main {
 
 /* Adjustments for very small screens */
 @media (max-width: 650px) {
-  h1, h2 {
+  h1,
+  h2 {
     font-size: 1.5rem; /* Reduce heading sizes */
   }
 
@@ -366,7 +379,8 @@ main {
     padding: 0.5rem 1rem; /* Adjust button size */
   }
 
-  .dice-text, .sum-column {
+  .dice-text,
+  .sum-column {
     text-align: center; /* Center align text */
     padding: 0.5rem;
   }
@@ -673,4 +687,3 @@ main {
     width: 100%;
   }
 }
-

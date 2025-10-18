@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MainPageCarousel from '@/components/MainPageCarousel.vue'
 import LandmarkErickEmbed from '@/components/LandmarkErickEmbed.vue'
+import ArnieWoodsEmbed from '@/components/ArnieWoodsEmbed.vue'
 </script>
 
 <template>
@@ -10,6 +11,7 @@ import LandmarkErickEmbed from '@/components/LandmarkErickEmbed.vue'
       <!-- Left Column: Spotify Widget -->
       <div class="left-column">
         <LandmarkErickEmbed />
+        <ArnieWoodsEmbed />
       </div>
 
       <!-- Center Column: Photo Carousel -->
