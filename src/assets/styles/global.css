@@ -311,6 +311,11 @@ main {
   height: 350px;
 }
 
+.brain-lords-embed iframe {
+  width: 500px;
+  height: 500px;
+}
+
 /*Spotify Embed  */
 .landmark-erick-embed {
   margin: 2rem auto;

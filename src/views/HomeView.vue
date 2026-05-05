@@ -2,6 +2,7 @@
 import MainPageCarousel from '@/components/MainPageCarousel.vue'
 import LandmarkErickEmbed from '@/components/LandmarkErickEmbed.vue'
 import ArnieWoodsEmbed from '@/components/ArnieWoodsEmbed.vue'
+import BrainLordsEmbed from '@/components/BrainLordsEmbed.vue'
 </script>
 
 <template>
@@ -17,6 +18,7 @@ import ArnieWoodsEmbed from '@/components/ArnieWoodsEmbed.vue'
       <!-- Center Column: Photo Carousel -->
       <div class="center-column">
         <MainPageCarousel />
+        <BrainLordsEmbed />
       </div>
 
       <!-- Right Column: Buttons -->
