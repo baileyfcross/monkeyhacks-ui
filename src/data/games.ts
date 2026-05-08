@@ -32,4 +32,12 @@ export const games: GameInfo[] = [
     status: 'Ready',
     buttonText: 'Open Aim Duel',
   },
+  {
+    title: 'CS2 Skin Price Watch',
+    description: 'Read-only market snapshots for quick checks of lowest listed public prices.',
+    route: '/market',
+    category: 'Market Utility',
+    status: 'Ready',
+    buttonText: 'Open Price Watch',
+  },
 ]
