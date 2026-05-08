@@ -1,0 +1,9 @@
+{
+  "name": "monkeyhacks-market-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "func start"
+  },
+  "dependencies": {}
+}

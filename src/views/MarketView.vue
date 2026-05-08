@@ -99,10 +99,17 @@ async function loadPrices() {
   try {
     const response = await fetch('/api/skins/prices')
     const payload = (await response.json()) as SkinPricesApiResponse
+    const contentType = response.headers.get("content-type") || "";
 
     if (!response.ok) {
-      throw new Error(payload.error || 'Failed to load skin prices.')
-    }
+    throw new Error(`Price API failed with status ${response.status}`);
+  }
+
+    if (!contentType.includes("application/json")) {
+    const text = await response.text();
+    console.error("Expected JSON but received:", text.slice(0, 300));
+    throw new Error("Price API returned a non-JSON response.");
+  }
 
     items.value = payload.items
     apiLastUpdated.value = payload.lastUpdated
