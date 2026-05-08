@@ -36,6 +36,7 @@ const infoPanels = [
         <RouterLink to="/diceGame" class="action-button action-primary">Open Site Roller</RouterLink>
         <RouterLink to="/plinko" class="action-button action-secondary">Open Plinko</RouterLink>
         <RouterLink to="/aim-duel" class="action-button action-secondary">Open Aim Duel</RouterLink>
+        <RouterLink to="/market" class="action-button action-secondary">Open Price Watch</RouterLink>
       </div>
     </header>
 
