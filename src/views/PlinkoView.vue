@@ -1,659 +1,657 @@
 <template>
-  <main class="main">
-    <div class="three-column">
-      <div class="left-column">
-        <!-- Left column intentionally left empty -->
-        <div class="controls">
-          <button @click="dropBallFromCenter">Drop Ball</button>
-          <button @click="startAutoDrop" :disabled="autoDropping">Auto Drop (10) (WIP)</button>
-          <button @click="resetBoard">Reset</button>
-        </div>
-      </div>
-      <div class="plinko-view">
-        <div class="header-row">
+  <main class="plinko-page">
+    <section class="plinko-shell">
+      <div class="header-row">
+        <div>
+          <p class="eyebrow">CS2 Mini Game</p>
           <h1>Plinko</h1>
-          <RouterLink to="/"><button class="button">← Back</button></RouterLink>
+          <p class="description">
+            Click inside the board to choose a drop point, or use controls to drop automatically.
+          </p>
         </div>
-        <p>Drop the puck and watch it bounce into a random slot!</p>
+        <RouterLink to="/" class="back-link">Back to Hub</RouterLink>
+      </div>
 
-        <div class="game-area">
-          <!-- Your Plinko game will go here -->
-          <div ref="canvasContainer" class="canvas-container" @click="handleCanvasClick"></div>
-          <!-- Slot labels at the bottom -->
-          <div class="slot-labels">
-            <div
-              class="slot-number"
-              v-for="(pos, i) in slotPositions"
-              :key="i"
-              :style="{ left: pos + '%' }"
-            >
-              {{ i + 1 }}
+      <div class="layout-grid">
+        <aside class="panel controls-panel">
+          <p class="panel-label">Controls</p>
+          <button class="action-button primary" @click="dropBallFromCenter">Drop Ball</button>
+          <button class="action-button" @click="startAutoDrop" :disabled="autoDropping">
+            Auto Drop (10)
+          </button>
+          <button class="action-button" @click="resetBoard">Reset</button>
+          <p class="hint">Tip: click anywhere in the board to drop from that position.</p>
+        </aside>
+
+        <section class="panel board-panel">
+          <div ref="canvasContainer" class="game-area" @click="handleCanvasClick">
+            <div class="slot-labels">
+              <div
+                v-for="(position, index) in slotPositions"
+                :key="index"
+                class="slot-number"
+                :style="{ left: `${position}%` }"
+              >
+                {{ index + 1 }}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="right-column">
-        <div class="score-board">
-          <h3>Slot Hit Totals</h3>
-          <div class="slots">
-            <div class="slot" v-for="(s, i) in scores" :key="i">
-              <div class="slot-label">Slot {{ i + 1 }}</div>
-              <div class="slot-score">{{ s }}</div>
+        </section>
+
+        <aside class="panel score-panel">
+          <p class="panel-label">Slot Hit Totals</p>
+          <div class="slots-grid">
+            <div class="slot-tile" v-for="(score, index) in scores" :key="index">
+              <p class="slot-name">Slot {{ index + 1 }}</p>
+              <p class="slot-score">{{ score }}</p>
             </div>
           </div>
-          <div class="total-balls">
-            <div class="total-label">Total Balls Dropped</div>
-            <div class="total-score">{{ totalBallsDropped }}</div>
+
+          <div class="stats-row">
+            <div>
+              <p class="small-label">Total Balls Dropped</p>
+              <p class="big-value">{{ totalBallsDropped }}</p>
+            </div>
+            <div>
+              <p class="small-label">Last Slot</p>
+              <p class="big-value">{{ lastSlotHit }}</p>
+            </div>
           </div>
-        </div>
+        </aside>
       </div>
-    </div>
+    </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import type { Ref } from 'vue'
-import Matter, { Engine, World, Runner, Render, Composite, Bodies, Events, Body } from 'matter-js'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import Matter, {
+  Bodies,
+  Body,
+  Composite,
+  Engine,
+  Events,
+  Render,
+  Runner,
+  World,
+} from 'matter-js'
 
-const canvasContainer: Ref<HTMLElement | null> = ref(null)
+const SLOT_COUNT = 7
+const PEG_ROWS = 9
+const BASE_PEG_COLUMNS = 7
+const PLINKO_GRAVITY_Y = 0.72
+const MAX_BALL_SPEED = 11
+
+const canvasContainer = ref<HTMLElement | null>(null)
+const scores = ref<number[]>(Array(SLOT_COUNT).fill(0))
+const slotPositions = ref<number[]>([])
+const autoDropping = ref(false)
+const lastSlotHit = ref('-')
+
 let engine: Matter.Engine | null = null
 let render: Matter.Render | null = null
 let runner: Matter.Runner | null = null
-let world: Matter.World | null = null
-const scores = ref<number[]>(Array(7).fill(0))
-const autoDropping = ref(false)
-const showBounds = ref(false)
-const slotPositions = ref<number[]>([])
+let autoDropTimer: number | null = null
+
+const boardMetrics = {
+  left: 0,
+  right: 0,
+  top: 0,
+  slotTop: 0,
+  slotWidth: 0,
+}
 
 const totalBallsDropped = computed(() => scores.value.reduce((sum, score) => sum + score, 0))
 
-const ROWS = 9
-const COLUMNS = 7
-
-function calculatePegRadius(): number {
-  // Different peg sizing based on actual screen/viewport width
-  const screenWidth = window.innerWidth
-  if (screenWidth <= 900) {
-    // Mobile and tablets (650px or less): smaller pegs
-    return 5
-  } else {
-    // Desktop screens (larger than 650px): larger pegs
-    return 10
-  }
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
-function calculateBallRadius(containerWidth: number): number {
-  const screenWidth = window.innerWidth
-  // Different ball sizing based on screen breakpoint
-  if (screenWidth <= 650) {
-    // Mobile and tablets (650px or less): smaller scaling
-    return Math.max(5, containerWidth / 35)
-  } else {
-    // Desktop screens (larger than 650px): larger scaling
-    return Math.max(5, containerWidth / 40)
+function ballRadius(width: number): number {
+  return clamp(width / 42, 6, 11)
+}
+
+function pegRadius(width: number): number {
+  return clamp(width / 85, 5, 9)
+}
+
+function clearAutoDrop() {
+  if (autoDropTimer !== null) {
+    window.clearInterval(autoDropTimer)
+    autoDropTimer = null
   }
+  autoDropping.value = false
 }
 
 function createPlinkoBoard() {
-  if (!world || !canvasContainer.value) return
+  if (!canvasContainer.value || !engine) return
 
-  const containerWidth = canvasContainer.value.clientWidth
-  const containerHeight = canvasContainer.value.clientHeight
+  const world = engine.world
+  const width = canvasContainer.value.clientWidth
+  const height = canvasContainer.value.clientHeight
 
-  // Clear existing bodies
   Composite.clear(world, false, true)
 
-  const ballRadius = calculateBallRadius(containerWidth)
-  const pegRadius = calculatePegRadius()
-  const paddingTop = Math.max(60, containerHeight * 0.15)
-  const paddingSides = pegRadius * 2 // Adjust padding to match the extra posts
-  const usableWidth = containerWidth - paddingSides * 2
-  const usableHeight = containerHeight - paddingTop - 80
+  const pegSize = pegRadius(width)
+  const paddingX = Math.max(22, pegSize * 2.8)
+  const paddingTop = Math.max(48, height * 0.1)
+  const slotHeight = Math.max(96, height * 0.18)
+  const slotDividerHeight = slotHeight + 24
+  const usableWidth = width - paddingX * 2
+  const usableHeight = height - paddingTop - slotHeight - 24
 
-  // Walls
+  boardMetrics.left = paddingX
+  boardMetrics.right = width - paddingX
+  boardMetrics.top = paddingTop
+  boardMetrics.slotTop = height - slotHeight
+  boardMetrics.slotWidth = usableWidth / SLOT_COUNT
+
+  const wallThickness = 14
+  const sideWallHalfHeight = height / 2
+
   const leftWall = Bodies.rectangle(
-    paddingSides / 2,
-    containerHeight / 2,
-    paddingSides,
-    containerHeight,
+    paddingX - wallThickness / 2,
+    sideWallHalfHeight,
+    wallThickness,
+    height,
     {
       isStatic: true,
-      restitution: 0.8,
-      render: { fillStyle: '#333' },
+      render: { fillStyle: '#364252' },
     },
   )
+
   const rightWall = Bodies.rectangle(
-    containerWidth - paddingSides / 2,
-    containerHeight / 2,
-    paddingSides,
-    containerHeight,
+    width - paddingX + wallThickness / 2,
+    sideWallHalfHeight,
+    wallThickness,
+    height,
     {
       isStatic: true,
-      restitution: 0.8,
-      render: { fillStyle: '#333' },
+      render: { fillStyle: '#364252' },
     },
   )
-  const topWall = Bodies.rectangle(
-    containerWidth / 2,
-    paddingTop / 2,
-    usableWidth + paddingSides * 2,
-    paddingTop,
-    {
-      isStatic: true,
-      render: { fillStyle: '#333' },
-    },
-  )
-  World.add(world, [leftWall, rightWall, topWall])
 
-  // Pegs
-  const pegSpacingX = usableWidth / (COLUMNS - 1)
-  const pegSpacingY = usableHeight / (ROWS - 1) // Ensure uniform vertical spacing
+  const ceilingThickness = 12
+  const ceiling = Bodies.rectangle(width / 2, ceilingThickness / 2, usableWidth + 8, ceilingThickness, {
+    isStatic: true,
+    render: { fillStyle: '#121920' },
+  })
 
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLUMNS; col++) {
-      const offsetX = row % 2 === 0 ? 0 : pegSpacingX / 2 // Stagger odd rows
-      const x = paddingSides + col * pegSpacingX + offsetX
-      const y = paddingTop + row * pegSpacingY * 0.9
+  const floor = Bodies.rectangle(width / 2, height + 6, usableWidth + 14, 12, {
+    isStatic: true,
+    render: { fillStyle: '#364252' },
+  })
 
-      // Ensure pegs are not placed too close to the walls
-      if (x > paddingSides + ballRadius && x < containerWidth - paddingSides - ballRadius) {
-        const peg = Bodies.circle(x, y, pegRadius, {
+  World.add(world, [leftWall, rightWall, ceiling, floor])
+
+  const pegSpacingX = usableWidth / SLOT_COUNT
+  const pegSpacingY = usableHeight / (PEG_ROWS - 1)
+
+  for (let row = 0; row < PEG_ROWS - 1; row += 1) {
+    const isOffsetRow = row % 2 === 0
+    const rowOffset = isOffsetRow ? pegSpacingX / 2 : 0
+    const pegsInRow = isOffsetRow ? SLOT_COUNT : SLOT_COUNT + 1
+
+    for (let col = 0; col < pegsInRow; col += 1) {
+      const x = paddingX + rowOffset + col * pegSpacingX
+      if (x <= paddingX + pegSize * 0.7 || x >= width - paddingX - pegSize * 0.7) continue
+
+      const y = paddingTop + row * pegSpacingY
+      World.add(
+        world,
+        Bodies.circle(x, y, pegSize, {
           isStatic: true,
-          restitution: 1.2, // Increase restitution for more bounciness
-          friction: 0, // Reduce friction to prevent stickiness
-          frictionStatic: 0, // Reduce static friction to prevent stickiness
-          render: { fillStyle: '#222' },
-        })
-        World.add(world, peg)
-      }
+          restitution: 1,
+          friction: 0,
+          frictionStatic: 0,
+          render: { fillStyle: '#f4a460' },
+        }),
+      )
     }
+  }
 
-    // Add extra pegs on odd rows towards the outside
-    if (row % 2 === 0) {
-      const leftExtraPegX = paddingSides
-      const rightExtraPegX = containerWidth - paddingSides
-      const y = paddingTop + row * pegSpacingY * 0.9
+  const slotCentersPercent: number[] = []
+  const dividerWidth = 10
+  const dividerY = height - slotDividerHeight / 2
 
-      const leftPeg = Bodies.circle(leftExtraPegX, y, pegRadius, {
+  for (let index = 0; index <= SLOT_COUNT; index += 1) {
+    const dividerX = paddingX + index * boardMetrics.slotWidth
+    World.add(
+      world,
+      Bodies.rectangle(dividerX, dividerY, dividerWidth, slotDividerHeight, {
         isStatic: true,
-        restitution: 1.2, // Increase restitution for more bounciness
-        friction: 0, // Reduce friction to prevent stickiness
-        frictionStatic: 0, // Reduce static friction to prevent stickiness
-        render: { fillStyle: '#222' },
-      })
-      const rightPeg = Bodies.circle(rightExtraPegX, y, pegRadius, {
-        isStatic: true,
-        restitution: 1.2, // Increase restitution for more bounciness
-        friction: 0, // Reduce friction to prevent stickiness
-        frictionStatic: 0, // Reduce static friction to prevent stickiness
-        render: { fillStyle: '#222' },
-      })
+        render: { fillStyle: '#495668' },
+      }),
+    )
 
-      World.add(world, [leftPeg, rightPeg])
+    if (index < SLOT_COUNT) {
+      const centerX = dividerX + boardMetrics.slotWidth / 2
+      slotCentersPercent.push((centerX / width) * 100)
     }
   }
 
-  // Add slots at the bottom inside the padded area
-  const slotY = containerHeight - 10
-  const slotHeight = 100
-  const positions: number[] = []
-
-  // Create the actual slot physics bodies and calculate label positions
-  for (let i = 0; i <= COLUMNS; i++) {
-    const gridX = i / COLUMNS // 0..1
-    const scaledX = paddingSides + gridX * usableWidth
-    const slot = Bodies.rectangle(scaledX, slotY, 10, slotHeight, {
-      isStatic: true,
-      label: `slot-${i}`,
-      render: { fillStyle: '#444' },
-    })
-    World.add(world, slot)
-
-    // Calculate label positions: center between each pair of adjacent slots
-    if (i > 0) {
-      const prevScaledX = paddingSides + ((i - 1) / COLUMNS) * usableWidth
-      const centerX = (prevScaledX + scaledX) / 2
-      // Convert back to percentage relative to containerWidth
-      const percentPosition = (centerX / containerWidth) * 100
-      positions.push(percentPosition)
-    }
-
-    // Add half domes at the top of the slot walls
-    const domeRadius = 5 // Smaller radius for half domes
-    const dome = Bodies.circle(scaledX, slotY - slotHeight / 2 - domeRadius / 2, domeRadius, {
-      isStatic: true,
-      render: { fillStyle: '#444' },
-    })
-    World.add(world, dome)
-  }
-
-  // Update the slot positions for UI alignment
-  slotPositions.value = positions
-
-  // Update the slot positions for UI alignment
-  slotPositions.value = positions
-
-  // Add floor inside the padded area (narrower than full canvas so walls are visible)
-  const floor = Bodies.rectangle(
-    containerWidth / 2,
-    containerHeight + 5,
-    containerWidth - paddingSides * 0.5,
-    10,
-    { isStatic: true, render: { fillStyle: '#222' } },
-  )
-  World.add(world, floor)
-
-  // Add a CSS overlay boundary (invisible physics body already exists via walls)
-  // We'll set data attributes on the container so the template CSS can draw the bounding box if needed.
-  if (canvasContainer.value) {
-    canvasContainer.value.dataset.boundLeft = String(paddingSides)
-    canvasContainer.value.dataset.boundRight = String(containerWidth - paddingSides)
-    canvasContainer.value.dataset.boundTop = String(paddingTop)
-    canvasContainer.value.dataset.boundBottom = String(slotY - slotHeight / 2)
-    if (showBounds.value) {
-      // apply inline style to visualize bounds
-      const left = Number(canvasContainer.value.dataset.boundLeft || 0)
-      const top = Number(canvasContainer.value.dataset.boundTop || 0)
-      const right = Number(canvasContainer.value.dataset.boundRight || containerWidth)
-      const bottom = Number(canvasContainer.value.dataset.boundBottom || containerHeight)
-      canvasContainer.value.style.outline = '2px dashed rgba(255,0,0,0.7)'
-      canvasContainer.value.style.clipPath = `inset(${top}px ${containerWidth - right}px ${containerHeight - bottom}px ${left}px)`
-    } else {
-      canvasContainer.value.style.outline = ''
-      canvasContainer.value.style.clipPath = ''
-    }
-  }
+  slotPositions.value = slotCentersPercent
 }
 
-function dropBall(x: number) {
-  if (!world || !canvasContainer.value) {
-    console.error('World or canvas container is not initialized.', {
-      worldInitialized: !!world,
-      canvasContainerInitialized: !!canvasContainer.value,
-    })
-    return
-  }
+function dropBall(rawX: number) {
+  if (!engine || !canvasContainer.value) return
+  if (boardMetrics.slotWidth <= 0) return
 
-  const containerWidth = canvasContainer.value.clientWidth
-  const containerHeight = canvasContainer.value.clientHeight
-  const ballX = Math.max(
-    10,
-    Math.min((x / canvasContainer.value.offsetWidth) * containerWidth, containerWidth - 10),
-  )
+  const width = canvasContainer.value.clientWidth
+  const radius = ballRadius(width)
+  const horizontalInset = radius + 12
+  const spawnX = clamp(rawX, boardMetrics.left + horizontalInset, boardMetrics.right - horizontalInset)
+  const spawnY = Math.max(radius + 14, boardMetrics.top - radius - 10)
 
-  // Adjust spawn position to ensure the ball starts within the visible area
-  const spawnY = Math.max(20, containerHeight * 0.1) // Start slightly below the top
-  const ballRadius = calculateBallRadius(containerWidth)
-
-  const ball = Bodies.circle(ballX, spawnY, ballRadius, {
-    restitution: 0.6,
+  const ball = Bodies.circle(spawnX, spawnY, radius, {
     label: 'ball',
-    friction: 0.5,
-    frictionAir: 0.005,
-    density: 0.04,
+    restitution: 0.62,
+    friction: 0.02,
+    frictionAir: 0.01,
+    density: 0.0012,
+    render: { fillStyle: '#dbe8f4' },
   })
 
-  // Set initial velocity to zero
   Body.setVelocity(ball, { x: 0, y: 0 })
-
-  World.add(world, ball)
-  console.debug('[Plinko] Spawned ball at', { x: ballX, y: spawnY, radius: ballRadius })
-}
-
-function startAutoDrop() {
-  if (autoDropping.value) return
-
-  autoDropping.value = true
-  const container = canvasContainer.value
-  if (!container) {
-    console.error('Canvas container is not initialized.')
-    autoDropping.value = false
-    return
-  }
-
-  const containerWidth = container.clientWidth
-  const pegRadius = calculatePegRadius()
-  const paddingSides = pegRadius * 2
-  const usableWidth = containerWidth - paddingSides * 2
-
-  let ballsDropped = 0
-  const ballsToDropEach = 10
-  const intervalTime = 100 // Drop one ball every 100ms
-
-  const dropInterval = setInterval(() => {
-    if (ballsDropped >= ballsToDropEach) {
-      clearInterval(dropInterval)
-      autoDropping.value = false
-      console.debug('[Plinko] Auto drop completed', { ballsDropped })
-      return
-    }
-
-    // Generate random X position within the valid playable area
-    const randomX = paddingSides + Math.random() * usableWidth
-    dropBall(randomX)
-    ballsDropped++
-
-    console.debug('[Plinko] Auto drop ball', { ballNumber: ballsDropped })
-  }, intervalTime)
-}
-
-function resetBoard() {
-  if (world) {
-    const allBodies = Composite.allBodies(world)
-    allBodies.forEach((body) => {
-      if (body.label === 'ball' && world) {
-        Composite.remove(world, body)
-      }
-    })
-  }
-  // Clear the slot scores
-  scores.value = Array(7).fill(0)
-}
-
-function handleCanvasClick(event: MouseEvent) {
-  const container = canvasContainer.value
-  if (!container) return
-
-  const rect = container.getBoundingClientRect()
-  const x = event.clientX - rect.left // Calculate the x-coordinate relative to the canvas
-  dropBall(x)
-}
-
-function handleResize() {
-  if (!canvasContainer.value || !engine || !render) return
-
-  const container = canvasContainer.value
-  const width = container.clientWidth
-  const height = container.clientHeight
-
-  // Update render dimensions
-  render.options.width = width
-  render.options.height = height
-
-  // Reposition the canvas
-  Render.setPixelRatio(render, window.devicePixelRatio || 1)
-  Render.lookAt(render, {
-    min: { x: 0, y: 0 },
-    max: { x: width, y: height },
-  })
-
-  // Recreate the Plinko board to fit the new dimensions
-  createPlinkoBoard()
+  World.add(engine.world, ball)
 }
 
 function dropBallFromCenter() {
-  const container = canvasContainer.value
-  if (!container) {
-    console.error('Canvas container is not initialized.')
-    return
-  }
+  if (!canvasContainer.value) return
+  const centerX = canvasContainer.value.clientWidth / 2
+  dropBall(centerX)
+}
 
-  // Generate a random x-coordinate within the board's width
-  const randomX = Math.random() * container.clientWidth
-  dropBall(randomX)
+function startAutoDrop() {
+  if (autoDropping.value || !canvasContainer.value) return
+
+  autoDropping.value = true
+  let dropped = 0
+  const boardWidth = boardMetrics.right - boardMetrics.left
+
+  autoDropTimer = window.setInterval(() => {
+    if (dropped >= 10) {
+      clearAutoDrop()
+      return
+    }
+
+    const randomX = boardMetrics.left + Math.random() * boardWidth
+    dropBall(randomX)
+    dropped += 1
+  }, 140)
+}
+
+function resetBoard() {
+  if (!engine) return
+
+  clearAutoDrop()
+  const world = engine.world
+  const balls = Composite.allBodies(world).filter((body) => body.label === 'ball')
+  balls.forEach((ball) => Composite.remove(world, ball))
+  scores.value = Array(SLOT_COUNT).fill(0)
+  lastSlotHit.value = '-'
+}
+
+function handleCanvasClick(event: MouseEvent) {
+  if (!canvasContainer.value) return
+
+  const rect = canvasContainer.value.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  dropBall(x)
+}
+
+function handleBallScoring() {
+  if (!engine || !canvasContainer.value) return
+
+  const world = engine.world
+  const width = canvasContainer.value.clientWidth
+  const height = canvasContainer.value.clientHeight
+
+  for (const body of Composite.allBodies(world)) {
+    if (body.label !== 'ball') continue
+
+    const speed = Math.sqrt(body.velocity.x * body.velocity.x + body.velocity.y * body.velocity.y)
+    if (speed > MAX_BALL_SPEED) {
+      const scale = MAX_BALL_SPEED / speed
+      Body.setVelocity(body, {
+        x: body.velocity.x * scale,
+        y: body.velocity.y * scale,
+      })
+    }
+
+    if (body.position.y >= boardMetrics.slotTop - 8) {
+      const normalized = (body.position.x - boardMetrics.left) / boardMetrics.slotWidth
+      const slotIndex = clamp(Math.floor(normalized), 0, SLOT_COUNT - 1)
+      const nextScores = [...scores.value]
+      nextScores[slotIndex] = (nextScores[slotIndex] ?? 0) + 1
+      scores.value = nextScores
+      lastSlotHit.value = String(slotIndex + 1)
+      Composite.remove(world, body)
+      continue
+    }
+
+    if (body.position.y > height + 140 || body.position.x < -120 || body.position.x > width + 120) {
+      Composite.remove(world, body)
+    }
+  }
+}
+
+function handleResize() {
+  if (!canvasContainer.value || !render) return
+
+  const width = canvasContainer.value.clientWidth
+  const height = canvasContainer.value.clientHeight
+  render.options.width = width
+  render.options.height = height
+
+  render.canvas.width = width
+  render.canvas.height = height
+
+  createPlinkoBoard()
 }
 
 onMounted(() => {
-  const container = canvasContainer.value
-  if (!container) {
-    console.error('Canvas container is not defined')
-    return
-  }
+  if (!canvasContainer.value) return
 
-  engine = Engine.create({
-    enableSleeping: false,
-  })
-  engine.world.gravity.y = 1
-
-  world = engine.world
-
-  // Reset gravity to default value
-  engine.gravity.y = 1 // Default gravity
+  engine = Engine.create({ enableSleeping: false })
+  engine.gravity.y = PLINKO_GRAVITY_Y
 
   render = Render.create({
-    element: container,
-    engine: engine,
+    element: canvasContainer.value,
+    engine,
     options: {
-      width: container.clientWidth,
-      height: container.clientHeight,
+      width: canvasContainer.value.clientWidth,
+      height: canvasContainer.value.clientHeight,
       wireframes: false,
+      background: 'transparent',
+      pixelRatio: window.devicePixelRatio || 1,
     },
   })
-
-  if (world) {
-    createPlinkoBoard()
-
-    // Check every frame if balls should be removed (simplified approach)
-    Events.on(engine, 'beforeUpdate', () => {
-      if (!world) return
-
-      const allBodies = Composite.allBodies(world)
-      const containerHeight = canvasContainer.value?.clientHeight || 0
-      const removalThreshold = containerHeight - 50 // Remove balls that reach near the bottom
-
-      allBodies.forEach((body) => {
-        if (body.label === 'ball') {
-          const ballY = body.position?.y || 0
-          const ballX = body.position?.x || 0
-
-          // If ball reaches the bottom area, find which slot it's in and remove it
-          if (ballY > removalThreshold) {
-            // Determine which slot based on X position
-            const containerWidth = canvasContainer.value?.clientWidth || 0
-            const pegRadius = calculatePegRadius()
-            const paddingSides = pegRadius * 2
-            const usableWidth = containerWidth - paddingSides * 2
-
-            // Calculate slot index based on ball's X position
-            const relativeX = ballX - paddingSides
-            const slotIndex = Math.round((relativeX / usableWidth) * COLUMNS)
-            const constrainedSlotIndex = Math.max(0, Math.min(COLUMNS, slotIndex))
-
-            console.debug('[Plinko] Removing ball at bottom', {
-              ballId: body.id,
-              ballY,
-              ballX,
-              slotIndex: constrainedSlotIndex,
-            })
-
-            // Increment the score for the appropriate slot
-            scores.value = scores.value.map((score, index) =>
-              index === constrainedSlotIndex ? score + 1 : score,
-            )
-
-            // Remove the ball
-            if (world) {
-              Composite.remove(world, body)
-            }
-          }
-        }
-      })
-    })
-
-    // Add collision end event to track ball lifecycle
-    Events.on(engine, 'collisionEnd', (event) => {
-      event.pairs.forEach((pair) => {
-        const { bodyA, bodyB } = pair
-        const ball = bodyA.label === 'ball' ? bodyA : bodyB.label === 'ball' ? bodyB : null
-        if (ball) {
-          console.debug('[Plinko] Ball collision ended', {
-            ballId: ball.id,
-            ballPosition: ball.position,
-          })
-        }
-      })
-    })
-  }
 
   runner = Runner.create()
   Runner.run(runner, engine)
   Render.run(render)
 
+  createPlinkoBoard()
+  Events.on(engine, 'beforeUpdate', handleBallScoring)
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
-  if (engine && world) {
-    Matter.World.clear(world, true)
+  clearAutoDrop()
+  window.removeEventListener('resize', handleResize)
+
+  if (engine) {
+    Events.off(engine, 'beforeUpdate', handleBallScoring)
+    World.clear(engine.world, true)
+    Engine.clear(engine)
   }
+
   if (render) {
-    Matter.Render.stop(render)
+    Render.stop(render)
+    render.canvas.remove()
+    render.textures = {}
   }
+
   if (runner) {
-    Matter.Runner.stop(runner)
+    Runner.stop(runner)
   }
+
   engine = null
-  world = null
   render = null
   runner = null
-
-  window.removeEventListener('resize', handleResize)
 })
 </script>
 
 <style scoped>
-.main {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;
-  background-color: #f0f0f0;
-}
-
-.three-column {
-  display: flex;
+.plinko-page {
   width: 100%;
-  max-width: 1200px;
+  min-height: 100vh;
+  padding: clamp(1rem, 2.4vw, 1.6rem);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(244, 164, 96, 0.14), transparent 42%),
+    radial-gradient(circle at 86% 95%, rgba(126, 170, 212, 0.14), transparent 48%),
+    #0f1319;
+  color: #e8eef4;
+}
+
+.plinko-shell {
+  width: min(1080px, 100%);
   margin: 0 auto;
-}
-
-.left-column,
-.right-column {
-  flex: 1;
-  padding: 20px;
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin: 0 10px;
-}
-
-.plinko-view {
-  flex: 2;
-  padding: 20px;
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin: 0 10px;
-}
-
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-button {
-  padding: 10px;
-  font-size: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 4px;
-  background-color: #007bff;
-  color: white;
-  transition: background-color 0.3s;
-}
-
-button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.score-board {
-  margin-top: 20px;
-  text-align: center; /* Center the text */
-}
-
-.slots {
-  display: flex;
-  justify-content: center; /* Center the slots container */
-  flex-wrap: wrap; /* Allow wrapping to new rows */
-  margin-top: 10px;
-}
-
-.slot {
-  flex: 1 1 calc(33.33% - 10px); /* Adjust to fit 3 slots per row with spacing */
-  text-align: center;
-  margin: 5px; /* Add spacing between rows */
-}
-
-@media (max-width: 600px) {
-  .slot {
-    flex: 1 1 calc(50% - 10px); /* Adjust to fit 2 slots per row on smaller screens */
-  }
-}
-
-@media (max-width: 400px) {
-  .slot {
-    flex: 1 1 100%; /* Stack slots in a single column on very small screens */
-  }
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #161c24;
+  padding: 1rem;
 }
 
 .header-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  color: rgba(244, 164, 96, 0.92);
+}
+
+h1 {
+  margin: 0.45rem 0 0;
+  font-size: clamp(1.6rem, 4.4vw, 2.25rem);
+}
+
+.description {
+  margin: 0.5rem 0 0;
+  color: rgba(205, 218, 230, 0.9);
+  max-width: 66ch;
+}
+
+.back-link {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  height: fit-content;
+  padding: 0.5rem 0.78rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #dbe8f4;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #202834;
+}
+
+.back-link:hover {
+  border-color: rgba(244, 164, 96, 0.55);
+}
+
+.layout-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 240px;
+  gap: 0.8rem;
+}
+
+.panel {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: #131820;
+  padding: 0.75rem;
+}
+
+.panel-label,
+.small-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: rgba(203, 220, 236, 0.74);
+}
+
+.controls-panel {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+}
+
+.action-button {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #202834;
+  color: #dbe8f4;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.56rem 0.72rem;
+}
+
+.action-button.primary {
+  color: #12161c;
+  border-color: #f4a460;
+  background: #f4a460;
+}
+
+.action-button:hover {
+  border-color: rgba(244, 164, 96, 0.55);
+}
+
+.action-button.primary:hover {
+  background: #ffb06c;
+}
+
+.action-button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 0.25rem 0 0;
+  color: rgba(205, 218, 230, 0.76);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.board-panel {
+  padding: 0.55rem;
 }
 
 .game-area {
   position: relative;
   width: 100%;
-  height: 500px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  /* Debugging overlay: toggle by adding 'show-bounds' class to .canvas-container */
-  .canvas-container.show-bounds::after {
-    content: '';
-    position: absolute;
-    left: attr(data-bound-left px);
-    top: attr(data-bound-top px);
-    width: calc(attr(data-bound-right px) - attr(data-bound-left px));
-    height: calc(attr(data-bound-bottom px) - attr(data-bound-top px));
-    border: 2px dashed rgba(255, 0, 0, 0.7);
-    pointer-events: none;
-  }
+  height: clamp(460px, 62vh, 620px);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background:
+    linear-gradient(180deg, rgba(41, 54, 72, 0.76), rgba(25, 33, 44, 0.82)),
+    radial-gradient(circle at 50% 0%, rgba(236, 247, 255, 0.08), transparent 44%);
   overflow: hidden;
-  background-color: #e9ecef;
+  cursor: crosshair;
 }
 
-.canvas-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible; /* Ensure the outer walls are not cut off */
+.game-area :deep(canvas) {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .slot-labels {
+  pointer-events: none;
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 25px;
-  background-color: rgba(255, 255, 255, 0.8);
-  border-top: 1px solid #ddd;
-  font-size: 12px;
-  font-weight: bold;
+  height: 30px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(14, 19, 26, 0.78);
 }
 
 .slot-number {
   position: absolute;
-  bottom: 50%;
-  transform: translate(-50%, 50%);
-  color: #333;
-  width: 30px;
+  bottom: 8px;
+  transform: translateX(-50%);
+  width: 24px;
   text-align: center;
-  line-height: 1;
+  color: rgba(220, 233, 245, 0.92);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.score-panel {
+  display: grid;
+  gap: 0.65rem;
+  align-content: start;
+}
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.slot-tile {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1a212b;
+  padding: 0.45rem;
+}
+
+.slot-name {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(205, 218, 230, 0.82);
+}
+
+.slot-score {
+  margin: 0.22rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f4a460;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.big-value {
+  margin: 0.24rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .game-area {
+    height: clamp(420px, 56vh, 560px);
+  }
+
+  .slots-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .plinko-page {
+    padding: 0.8rem;
+  }
+
+  .plinko-shell {
+    padding: 0.75rem;
+  }
+
+  .slots-grid,
+  .stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-area {
+    height: 440px;
+  }
 }
 </style>
