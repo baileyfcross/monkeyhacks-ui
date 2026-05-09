@@ -97,7 +97,7 @@ async function loadPrices() {
   apiNotice.value = ''
 
   try {
-    const response = await fetch('/api/skins/prices')
+    const response = await fetch('/api/prices')
     const payload = (await response.json()) as SkinPricesApiResponse
     const contentType = response.headers.get("content-type") || "";
 
